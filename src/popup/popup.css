@@ -1,0 +1,8 @@
+body { width: 280px; margin: 0; padding: 12px; font-family: -apple-system, system-ui, sans-serif; background: #1c1c1e; color: #f2f2f7; }
+.row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+select { flex: 1; padding: 6px; background: #2c2c2e; color: #fff; border: 1px solid #3a3a3c; border-radius: 8px; }
+.arrow { opacity: 0.7; }
+label { font-size: 12px; opacity: 0.7; width: 56px; }
+button.primary { width: 100%; padding: 12px; background: #d63384; color: #fff; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
+.modes button { flex: 1; padding: 6px; background: #2c2c2e; color: #fff; border: 1px solid #3a3a3c; border-radius: 8px; cursor: pointer; font-size: 12px; }
+a { display: block; text-align: center; color: #0a84ff; font-size: 13px; margin-top: 6px; text-decoration: none; }

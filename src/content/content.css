@@ -1,0 +1,24 @@
+.xlate-translation {
+  all: revert;
+  display: block;
+  margin: 2px 0 6px 0;
+  padding: 1px 0;
+  color: #2563eb;
+  font-size: 0.95em;
+  line-height: 1.4;
+  border-left: 2px solid rgba(37, 99, 235, 0.35);
+  padding-left: 6px;
+}
+.xlate-hidden-original { display: none !important; }
+.xlate-error { color: #dc2626; cursor: help; }
+.xlate-tooltip {
+  position: absolute;
+  z-index: 2147483647;
+  max-width: 360px;
+  background: #111827;
+  color: #f9fafb;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}

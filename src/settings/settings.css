@@ -1,0 +1,23 @@
+body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: #1c1c1e; color: #f2f2f7; }
+.layout { display: flex; min-height: 100vh; }
+aside { width: 220px; background: #161618; padding: 20px; border-right: 1px solid #2c2c2e; }
+aside h1 { font-size: 16px; }
+nav a { display: block; padding: 8px; border-radius: 8px; color: #f2f2f7; text-decoration: none; }
+nav a.active { background: #d63384; }
+main { flex: 1; display: flex; }
+.list { width: 320px; padding: 20px; border-right: 1px solid #2c2c2e; }
+.list-header { display: flex; justify-content: space-between; align-items: center; }
+ul { list-style: none; padding: 0; margin: 8px 0; }
+#provider-list li { display: flex; align-items: center; gap: 8px; padding: 10px; border-radius: 8px; background: #2c2c2e; margin-bottom: 6px; }
+#provider-list li.selected { outline: 2px solid #d63384; }
+#provider-list .name { flex: 1; cursor: pointer; }
+.default { font-style: normal; font-size: 11px; background: #0a84ff; padding: 2px 6px; border-radius: 6px; }
+#preset-list button, #add-custom { background: #2c2c2e; color: #fff; border: 1px solid #3a3a3c; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+.detail { flex: 1; padding: 20px; }
+.field { display: block; margin-bottom: 14px; }
+.field span { display: block; font-size: 12px; opacity: 0.7; margin-bottom: 4px; }
+.field input, .field select, .detail select { width: 100%; max-width: 420px; padding: 8px; background: #2c2c2e; color: #fff; border: 1px solid #3a3a3c; border-radius: 8px; }
+.actions { margin-top: 16px; display: flex; gap: 10px; }
+.actions button { padding: 8px 14px; border-radius: 8px; border: none; background: #0a84ff; color: #fff; cursor: pointer; }
+.actions button.danger { background: #dc2626; }
+.empty { opacity: 0.6; }

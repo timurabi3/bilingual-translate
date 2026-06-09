@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Bilingual Translate",
+  "version": "0.1.0",
+  "description": "Free, open-source bilingual inline page translation. Bring your own API key for any provider, or use the free default.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "src/background/worker.js", "type": "module" },
+  "action": { "default_popup": "src/popup/popup.html", "default_title": "Bilingual Translate" },
+  "options_ui": { "page": "src/settings/settings.html", "open_in_tab": true },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/content.js", "src/content/selection.js"],
+      "css": ["src/content/content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
