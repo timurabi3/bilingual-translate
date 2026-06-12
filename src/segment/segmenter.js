@@ -25,6 +25,24 @@ function hasTextElementChild(node) {
   return false;
 }
 
+// Pure formatting wrappers: when a phrase is split across these (Taobao does
+// `<span>免费</span><span>注册</span>`), the parts belong to ONE translation
+// unit. Anchors/buttons are interactive items and stay separate units.
+const INLINE_FORMATTING = new Set(["SPAN", "B", "I", "EM", "STRONG", "U", "SMALL", "SUP", "SUB", "MARK", "FONT", "ABBR", "BDI", "BDO", "RUBY", "RT"]);
+const MERGE_MAX_LENGTH = 300;
+
+function onlyFormattingChildren(node) {
+  let any = false;
+  for (const child of node.children) {
+    if (shouldSkip(child)) continue;
+    if (!child.textContent || !child.textContent.trim()) continue;
+    if (!INLINE_FORMATTING.has(child.tagName)) return false;
+    if (child.children.length > 0 && !onlyFormattingChildren(child)) return false;
+    any = true;
+  }
+  return any;
+}
+
 function pushBlock(blocks, el) {
   const text = el.textContent.replace(/\s+/g, " ").trim();
   if (!text || text.length > MAX_BLOCK_LENGTH) return;
@@ -47,6 +65,11 @@ function collect(node, blocks) {
   if (!full || !full.trim()) return;
 
   if (ownText(node)) {
+    pushBlock(blocks, node);
+    return;
+  }
+  // A phrase split across pure formatting spans is one unit, not fragments.
+  if (full.trim().length <= MERGE_MAX_LENGTH && onlyFormattingChildren(node)) {
     pushBlock(blocks, node);
     return;
   }

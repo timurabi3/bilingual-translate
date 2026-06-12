@@ -109,6 +109,21 @@ describe("collectBlocks", () => {
     expect(blocks.map((b) => b.text)).toEqual(["第一段", "第二段"]);
   });
 
+  it("merges sibling formatting spans into one unit (no fragment soup)", () => {
+    // Taobao splits one phrase across spans: translating each separately gives
+    // "Free" + "registration" fragments — must be one unit.
+    const r = root(`<div><span>免费</span><span>注册</span></div>`);
+    const blocks = collectBlocks(r);
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].text).toBe("免费注册");
+  });
+
+  it("still splits anchor children into separate units", () => {
+    const r = root(`<div><a href="#1">电脑</a><a href="#2">手机</a></div>`);
+    const blocks = collectBlocks(r);
+    expect(blocks.map((b) => b.text)).toEqual(["电脑", "手机"]);
+  });
+
   it("ignores hidden ancestors via skip rules", () => {
     const r = root(`<div style="display:none"><p>hidden</p></div><p>visible</p>`);
     const blocks = collectBlocks(r);
