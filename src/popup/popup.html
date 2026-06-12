@@ -2,22 +2,42 @@
 <html>
 <head><meta charset="utf-8"><link rel="stylesheet" href="popup.css"></head>
 <body>
-  <div class="row">
-    <select id="source"></select>
-    <span class="arrow">→</span>
-    <select id="target"></select>
-  </div>
-  <div class="row">
-    <label>Provider</label>
-    <select id="provider"></select>
-  </div>
-  <button id="translate" class="primary">Translate</button>
-  <div class="row modes">
-    <button data-mode="bilingual">Bilingual</button>
+  <header class="appbar">
+    <span class="logo">文<span class="logo-a">A</span></span>
+    <span class="title">Bilingual Translate</span>
+    <span class="free-pill">Free · No Pro</span>
+  </header>
+
+  <section class="card langs">
+    <select id="source" class="lang"></select>
+    <button id="swap" class="swap" title="Swap languages" aria-label="Swap languages">⇄</button>
+    <select id="target" class="lang"></select>
+  </section>
+
+  <section class="card service">
+    <span class="service-icon">🌐</span>
+    <div class="service-body">
+      <span class="service-label">Service</span>
+      <select id="provider" class="provider"></select>
+    </div>
+  </section>
+
+  <button id="translate" class="translate">
+    <span>Translate</span>
+    <kbd>⌥A</kbd>
+  </button>
+
+  <div class="modes" role="group" aria-label="Display mode">
+    <button data-mode="bilingual" class="active">Bilingual</button>
     <button data-mode="original">Original</button>
     <button data-mode="translation">Translation</button>
   </div>
-  <a id="open-settings" href="#">Settings</a>
+
+  <footer class="footer">
+    <a id="open-settings" href="#"><span class="gear">⚙</span> Settings</a>
+    <span class="version">v0.1.0</span>
+  </footer>
+
   <script type="module" src="popup.js"></script>
 </body>
 </html>

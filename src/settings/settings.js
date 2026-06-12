@@ -91,6 +91,7 @@ function renderDetail() {
   actions.appendChild(def);
 
   const test = document.createElement("button");
+  test.className = "primary";
   test.textContent = "Test";
   test.onclick = async () => {
     test.textContent = "Testing…";

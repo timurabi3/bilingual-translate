@@ -2,6 +2,8 @@ import { collectBlocks } from "../segment/segmenter.js";
 import { injectTranslation, removeAllTranslations, setDisplayMode } from "./inject.js";
 import { MSG } from "../common/messages.js";
 
+const BATCH = 20;
+
 let translating = false;
 
 async function requestTranslate(texts, sourceLang, targetLang) {
@@ -13,20 +15,36 @@ async function requestTranslate(texts, sourceLang, targetLang) {
   return res.translations;
 }
 
+// Vertical distance from the top of the viewport. Blocks closest to (or inside)
+// the viewport translate first, so a long Taobao page fills in where the user is
+// looking instead of top-to-bottom from the page origin.
+function viewportDistance(el) {
+  const r = el.getBoundingClientRect();
+  if (r.bottom < 0) return Math.abs(r.bottom) + 100000; // above viewport, deprioritise
+  return Math.max(0, r.top);
+}
+
+async function translateBatch(slice, opts) {
+  try {
+    const translations = await requestTranslate(slice.map((b) => b.text), opts.sourceLang, opts.targetLang);
+    slice.forEach((b, j) => {
+      if (translations[j]) injectTranslation(b.el, translations[j]);
+    });
+  } catch (e) {
+    slice.forEach((b) => markError(b.el, e.message));
+  }
+}
+
 async function translatePage({ sourceLang, targetLang }) {
   if (translating) return;
   translating = true;
   try {
-    const blocks = collectBlocks(document.body);
-    const BATCH = 20;
+    const blocks = collectBlocks(document.body)
+      .filter((b) => !b.el.hasAttribute("data-xlate-orig"))
+      .sort((a, b) => viewportDistance(a.el) - viewportDistance(b.el));
+
     for (let i = 0; i < blocks.length; i += BATCH) {
-      const slice = blocks.slice(i, i + BATCH);
-      try {
-        const translations = await requestTranslate(slice.map((b) => b.text), sourceLang, targetLang);
-        slice.forEach((b, j) => injectTranslation(b.el, translations[j]));
-      } catch (e) {
-        slice.forEach((b) => markError(b.el, e.message));
-      }
+      await translateBatch(blocks.slice(i, i + BATCH), { sourceLang, targetLang });
     }
     observeMutations({ sourceLang, targetLang });
   } finally {
@@ -37,7 +55,7 @@ async function translatePage({ sourceLang, targetLang }) {
 function markError(el, reason) {
   if (el.hasAttribute("data-xlate-orig")) return;
   el.setAttribute("data-xlate-orig", "1");
-  const warn = document.createElement("span");
+  const warn = el.ownerDocument.createElement("span");
   warn.setAttribute("data-xlate", "1");
   warn.className = "xlate-error";
   warn.textContent = " ⚠";
@@ -58,14 +76,19 @@ function observeMutations(opts) {
     }
     clearTimeout(timer);
     timer = setTimeout(async () => {
-      const roots = pending; pending = [];
+      const roots = pending;
+      pending = [];
       const fresh = [];
-      for (const r of roots) for (const b of collectBlocks(r)) fresh.push(b);
+      for (const r of roots) {
+        if (!r.isConnected) continue;
+        for (const b of collectBlocks(r)) {
+          if (!b.el.hasAttribute("data-xlate-orig")) fresh.push(b);
+        }
+      }
       if (fresh.length === 0) return;
-      try {
-        const translations = await requestTranslate(fresh.map((b) => b.text), opts.sourceLang, opts.targetLang);
-        fresh.forEach((b, j) => injectTranslation(b.el, translations[j]));
-      } catch (e) { /* leave untranslated on dynamic error */ }
+      for (let i = 0; i < fresh.length; i += BATCH) {
+        await translateBatch(fresh.slice(i, i + BATCH), opts);
+      }
     }, 400);
   });
   observer.observe(document.body, { childList: true, subtree: true });

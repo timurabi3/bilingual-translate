@@ -48,6 +48,12 @@ for (const rel of STATIC) {
   }
 }
 
+// Copy icons (PNG only — the SVG source stays out of the bundle).
+fs.mkdirSync(path.join(OUT, "icons"), { recursive: true });
+for (const f of fs.readdirSync("icons")) {
+  if (f.endsWith(".png")) fs.copyFileSync(path.join("icons", f), path.join(OUT, "icons", f));
+}
+
 // Rewrite manifest: strip "type: module" and point paths at dist-relative files.
 const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
 manifest.background = { service_worker: "background/worker.js" };

@@ -4,20 +4,28 @@
 <body>
   <div class="layout">
     <aside>
-      <h1>Bilingual Translate</h1>
-      <nav><a class="active">Translation services</a></nav>
+      <div class="brand">
+        <span class="logo">文<span class="logo-a">A</span></span>
+        <div>
+          <h1>Bilingual Translate</h1>
+          <span class="free-pill">Free · Open source · No Pro</span>
+        </div>
+      </div>
+      <nav><a class="active"><span class="dot"></span>Translation services</a></nav>
+      <p class="aside-note">Bring your own API key for any provider — or use the free default. No account, no upgrade, no gating.</p>
     </aside>
+
     <main>
       <div class="list">
         <div class="list-header">
           <h2>Providers</h2>
-          <button id="add-custom">+ Add custom service</button>
+          <button id="add-custom" class="ghost">+ Custom</button>
         </div>
         <ul id="provider-list"></ul>
         <h3>Add from presets</h3>
-        <ul id="preset-list"></ul>
+        <ul id="preset-list" class="presets"></ul>
       </div>
-      <div class="detail" id="detail"><p class="empty">Select a provider to edit.</p></div>
+      <div class="detail" id="detail"><p class="empty">Select a provider to edit its settings.</p></div>
     </main>
   </div>
   <script type="module" src="settings.js"></script>
