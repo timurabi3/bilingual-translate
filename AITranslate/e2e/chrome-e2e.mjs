@@ -158,6 +158,35 @@ for (let i = 0; i < 20; i++) {
 }
 log("selection tooltip:", tooltip ? tooltip.slice(0, 90) : "NOT SHOWN");
 
+// --- 7b. settings page: adapter dropdown must show human labels ---------------
+const settingsPage = await ctx.newPage();
+await settingsPage.goto(`chrome-extension://${extId}/settings/settings.html`);
+await settingsPage.waitForTimeout(1200);
+// Add the DeepSeek preset so the detail form renders with an openai-compat provider.
+await settingsPage.evaluate(() => {
+  const presetBtn = [...document.querySelectorAll("#preset-list button")].find((b) =>
+    b.textContent.includes("DeepSeek")
+  );
+  if (presetBtn) presetBtn.click();
+});
+await settingsPage.waitForTimeout(1000);
+const settingsInfo = await settingsPage.evaluate(() => {
+  const sel = document.querySelector(".detail select");
+  const options = sel ? [...sel.options].map((o) => o.textContent) : [];
+  const textInputs = [...document.querySelectorAll(".detail input[type=text]")];
+  const dlCount = Math.max(0, ...textInputs.map((i) => (i.list ? i.list.options.length : 0)));
+  return { options, modelListSize: dlCount };
+});
+log("adapter options:", JSON.stringify(settingsInfo.options));
+log("model suggestions:", settingsInfo.modelListSize);
+await settingsPage.screenshot({ path: path.join(SCREENSHOT_DIR, "settings.png"), fullPage: true });
+log("screenshot:", path.join(SCREENSHOT_DIR, "settings.png"));
+
+const settingsOk =
+  settingsInfo.options.length === 4 &&
+  settingsInfo.options.every((o) => !["keyless", "openai-compat", "classic-mt", "anthropic"].includes(o)) &&
+  settingsInfo.modelListSize > 0;
+
 // --- 8. screenshot -----------------------------------------------------------
 fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 await page.screenshot({ path: path.join(SCREENSHOT_DIR, "chrome-e2e.png"), fullPage: true });
@@ -166,6 +195,6 @@ log("screenshot:", path.join(SCREENSHOT_DIR, "chrome-e2e.png"));
 await ctx.close();
 server.close();
 
-const pass = result.count >= 6 && !!tooltip;
+const pass = result.count >= 6 && !!tooltip && settingsOk;
 console.log(pass ? "\nE2E RESULT: PASS" : "\nE2E RESULT: FAIL");
 process.exit(pass ? 0 : 1);

@@ -38,6 +38,8 @@ these APIs, hit the Test button to check it, and set it as your default. Keys li
 your browser's local storage and are only ever sent to the provider you picked.
 Nothing phones home. No accounts, no tracking, no telemetry, no "Pro" badge.
 
+![Settings: providers, adapter types, model picker](screenshots/settings.png)
+
 ## Install (Chrome)
 
 1. Clone or download the repo.

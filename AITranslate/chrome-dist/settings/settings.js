@@ -29,18 +29,110 @@ globalThis.browser ??= globalThis.chrome;
   };
 
   // src/settings/settings.js
-  var ADAPTER_TYPES = ["keyless", "openai-compat", "classic-mt", "anthropic"];
+  var ADAPTER_TYPES = [
+    { value: "keyless", label: "Free (Google Translate)", hint: "Google's free endpoint. No key, no signup, works immediately." },
+    { value: "openai-compat", label: "OpenAI-compatible (OpenAI, DeepSeek, Groq, Ollama\u2026)", hint: "Any service that speaks the OpenAI /chat/completions API. Pick the model below or type your own." },
+    { value: "classic-mt", label: "Classic MT (DeepL / Google Cloud)", hint: "Dedicated translation APIs instead of LLMs. Usually cheaper and faster for whole pages." },
+    { value: "anthropic", label: "Anthropic (Claude)", hint: "Claude directly via Anthropic's /v1/messages API." }
+  ];
+  var ADAPTER_TEMPLATES = {
+    keyless: {},
+    "openai-compat": { apiUrl: "https://api.openai.com/v1/chat/completions", model: "gpt-4o-mini" },
+    "classic-mt": { apiUrl: "https://api-free.deepl.com/v2/translate", variant: "deepl" },
+    anthropic: { apiUrl: "https://api.anthropic.com/v1/messages", model: "claude-haiku-4-5-20251001" }
+  };
+  var MODEL_SUGGESTIONS = {
+    "openai-compat": [
+      "gpt-4o-mini",
+      "gpt-4o",
+      "gpt-4.1-mini",
+      "gpt-4.1",
+      "gpt-5-mini",
+      "deepseek-chat",
+      "deepseek-reasoner",
+      "llama-3.3-70b-versatile",
+      "llama-4-scout-17b-16e-instruct",
+      "openai/gpt-4o-mini",
+      "google/gemini-2.5-flash",
+      "anthropic/claude-sonnet-4-5",
+      "llama3.1",
+      "qwen2.5:7b",
+      "mistral"
+    ],
+    anthropic: [
+      "claude-haiku-4-5-20251001",
+      "claude-sonnet-4-5-20250929",
+      "claude-opus-4-5-20251101"
+    ]
+  };
   var settings = null;
   var selectedId = null;
   async function load() {
     const res = await browser.runtime.sendMessage({ type: MSG.GET_SETTINGS });
     settings = res.settings;
   }
-  async function persist() {
-    await browser.runtime.sendMessage({ type: MSG.SAVE_SETTINGS, payload: settings });
+  var saveChain = Promise.resolve();
+  function persist() {
+    saveChain = saveChain.then(
+      () => browser.runtime.sendMessage({
+        type: MSG.SAVE_SETTINGS,
+        payload: JSON.parse(JSON.stringify(settings))
+      })
+    );
+    return saveChain;
   }
   function uid() {
     return "p_" + Math.random().toString(36).slice(2, 9);
+  }
+  function hint(text) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = text;
+    return p;
+  }
+  function field(label, value, onInput, type = "text", suggestions = null) {
+    const wrap = document.createElement("label");
+    wrap.className = "field";
+    wrap.innerHTML = `<span>${label}</span>`;
+    const input = document.createElement("input");
+    input.type = type;
+    input.value = value || "";
+    input.oninput = (e) => onInput(e.target.value);
+    if (suggestions && suggestions.length) {
+      const dl = document.createElement("datalist");
+      dl.id = "dl_" + Math.random().toString(36).slice(2, 8);
+      for (const s of suggestions) {
+        const o = document.createElement("option");
+        o.value = s;
+        dl.appendChild(o);
+      }
+      wrap.appendChild(dl);
+      input.setAttribute("list", dl.id);
+    }
+    wrap.appendChild(input);
+    return wrap;
+  }
+  function selectField(labelText, options, current, onChange) {
+    const wrap = document.createElement("label");
+    wrap.className = "field";
+    wrap.innerHTML = `<span>${labelText}</span>`;
+    const sel = document.createElement("select");
+    for (const o of options) {
+      const opt = document.createElement("option");
+      opt.value = o.value;
+      opt.textContent = o.label;
+      if (current === o.value) opt.selected = true;
+      sel.appendChild(opt);
+    }
+    sel.onchange = (e) => onChange(e.target.value);
+    wrap.appendChild(sel);
+    return wrap;
+  }
+  function modelSuggestionsFor(p) {
+    const base = MODEL_SUGGESTIONS[p.adapter] || [];
+    const preset = PRESETS.find((pr) => pr.adapter === p.adapter && pr.name === p.name);
+    const extra = preset && preset.model ? [preset.model] : [];
+    return [.../* @__PURE__ */ new Set([...extra, ...base])].filter(Boolean);
   }
   function renderList() {
     const ul = document.getElementById("provider-list");
@@ -56,6 +148,7 @@ globalThis.browser ??= globalThis.chrome;
         selectedId = p.id;
         render();
       };
+      li.querySelector("input").title = "Enable or disable this provider";
       li.querySelector("input").onchange = async (e) => {
         p.enabled = e.target.checked;
         await persist();
@@ -77,17 +170,6 @@ globalThis.browser ??= globalThis.chrome;
       presetUl.appendChild(li);
     }
   }
-  function field(label, value, onInput, type = "text") {
-    const wrap = document.createElement("label");
-    wrap.className = "field";
-    wrap.innerHTML = `<span>${label}</span>`;
-    const input = document.createElement("input");
-    input.type = type;
-    input.value = value || "";
-    input.oninput = (e) => onInput(e.target.value);
-    wrap.appendChild(input);
-    return wrap;
-  }
   function renderDetail() {
     const host = document.getElementById("detail");
     host.innerHTML = "";
@@ -96,42 +178,70 @@ globalThis.browser ??= globalThis.chrome;
       host.innerHTML = '<p class="empty">Select a provider to edit.</p>';
       return;
     }
-    host.appendChild(field("Name", p.name, (v) => {
-      p.name = v;
-      persist();
-      renderList();
-    }));
-    const adapterWrap = document.createElement("label");
-    adapterWrap.className = "field";
-    adapterWrap.innerHTML = "<span>Adapter type</span>";
-    const sel = document.createElement("select");
-    for (const t of ADAPTER_TYPES) {
-      const o = document.createElement("option");
-      o.value = t;
-      o.textContent = t;
-      if (p.adapter === t) o.selected = true;
-      sel.appendChild(o);
-    }
-    sel.onchange = (e) => {
-      p.adapter = e.target.value;
-      persist();
-      renderDetail();
-    };
-    adapterWrap.appendChild(sel);
-    host.appendChild(adapterWrap);
+    host.appendChild(
+      field("Name", p.name, (v) => {
+        p.name = v;
+        persist();
+        renderList();
+      })
+    );
+    const adapterMeta = ADAPTER_TYPES.find((t) => t.value === p.adapter) || ADAPTER_TYPES[1];
+    host.appendChild(
+      selectField("Adapter type", ADAPTER_TYPES, p.adapter, (v) => {
+        p.adapter = v;
+        const tpl = ADAPTER_TEMPLATES[v] || {};
+        if (!p.apiUrl && tpl.apiUrl) p.apiUrl = tpl.apiUrl;
+        if (!p.model && tpl.model) p.model = tpl.model;
+        if (tpl.variant) p.variant = tpl.variant;
+        persist();
+        renderDetail();
+      })
+    );
+    host.appendChild(hint(adapterMeta.hint));
     if (p.adapter !== "keyless") {
-      host.appendChild(field("API URL", p.apiUrl, (v) => {
-        p.apiUrl = v;
-        persist();
-      }));
-      host.appendChild(field("API key", p.apiKey, (v) => {
-        p.apiKey = v;
-        persist();
-      }, "password"));
-      if (p.adapter !== "classic-mt") host.appendChild(field("Model", p.model, (v) => {
-        p.model = v;
-        persist();
-      }));
+      host.appendChild(
+        field("API URL", p.apiUrl, (v) => {
+          p.apiUrl = v;
+          persist();
+        })
+      );
+      host.appendChild(
+        field("API key", p.apiKey, (v) => {
+          p.apiKey = v;
+          persist();
+        }, "password")
+      );
+      if (p.adapter === "classic-mt") {
+        const VARIANT_URLS = {
+          deepl: "https://api-free.deepl.com/v2/translate",
+          "google-cloud": "https://translation.googleapis.com/language/translate/v2"
+        };
+        host.appendChild(
+          selectField(
+            "Service",
+            [
+              { value: "deepl", label: "DeepL" },
+              { value: "google-cloud", label: "Google Cloud Translate" }
+            ],
+            p.variant || "deepl",
+            (v) => {
+              p.variant = v;
+              if (!p.apiUrl || Object.values(VARIANT_URLS).includes(p.apiUrl)) p.apiUrl = VARIANT_URLS[v];
+              persist();
+              renderDetail();
+            }
+          )
+        );
+      } else {
+        host.appendChild(
+          field("Model", p.model, (v) => {
+            p.model = v;
+            persist();
+          }, "text", modelSuggestionsFor(p))
+        );
+      }
+    } else {
+      host.appendChild(hint("No key needed \u2014 this is the free default."));
     }
     const actions = document.createElement("div");
     actions.className = "actions";
@@ -148,7 +258,7 @@ globalThis.browser ??= globalThis.chrome;
     test.textContent = "Test";
     test.onclick = async () => {
       test.textContent = "Testing\u2026";
-      const res = await browser.runtime.sendMessage({ type: MSG.TEST_PROVIDER, payload: p });
+      const res = await browser.runtime.sendMessage({ type: MSG.TEST_PROVIDER, payload: JSON.parse(JSON.stringify(p)) });
       test.textContent = res.ok ? `OK: ${res.sample}` : `Fail: ${res.error}`;
       setTimeout(() => test.textContent = "Test", 4e3);
     };
@@ -171,7 +281,15 @@ globalThis.browser ??= globalThis.chrome;
     renderDetail();
   }
   document.getElementById("add-custom").onclick = async () => {
-    const custom = { id: uid(), name: "Custom service", adapter: "openai-compat", apiUrl: "", apiKey: "", model: "", enabled: true };
+    const custom = {
+      id: uid(),
+      name: "Custom service",
+      adapter: "openai-compat",
+      apiUrl: ADAPTER_TEMPLATES["openai-compat"].apiUrl,
+      apiKey: "",
+      model: ADAPTER_TEMPLATES["openai-compat"].model,
+      enabled: true
+    };
     settings.providers.push(custom);
     selectedId = custom.id;
     await persist();
