@@ -19,12 +19,17 @@ const ENTRIES = {
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 
+// Chrome has no `browser` global (Firefox/Safari do). Shim it onto `chrome` so the
+// same code runs everywhere. Safari keeps its native `browser` object untouched.
+const BROWSER_SHIM = "globalThis.browser ??= globalThis.chrome;\n";
+
 await build({
   entryPoints: Object.entries(ENTRIES).map(([out, inp]) => ({ in: inp, out: out.replace(/\.js$/, "") })),
   outdir: OUT,
   bundle: true,
   format: "iife",
   target: "safari16",
+  banner: { js: BROWSER_SHIM },
   logLevel: "info",
 });
 

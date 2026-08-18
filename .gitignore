@@ -1,4 +1,27 @@
+# deps
 node_modules/
+**/.profile-e2e/
+
+# build output (chrome-dist is committed on purpose)
+extension/dist/
+xcode-build/
+
+# mac cruft
 .DS_Store
 *.log
-dist/
+
+# local-only stuff (Safari app bundle, old worktree, stale duplicate build)
+**/Bilingual Translate.app/
+**/.claude/
+**/extension-dist/
+**/manuscript.tex
+
+# local agent/docs files — not part of the public repo
+AGENTS.md
+CLAUDE.md
+PROJECT_CONTEXT.md
+OPEN_TASKS.md
+SOURCE_PATHS.md
+RUNBOOK.md
+DEEP_SCAN_2026-07-11.md
+CHROME.md
