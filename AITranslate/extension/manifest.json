@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bilingual Translate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Free, open-source bilingual inline page translation. Bring your own API key for any provider, or use the free default.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
@@ -26,6 +26,12 @@
     }
   },
   "options_ui": { "page": "src/settings/settings.html", "open_in_tab": true },
+  "commands": {
+    "translate-page": {
+      "suggested_key": { "default": "Alt+A", "mac": "Alt+A" },
+      "description": "Translate the current page"
+    }
+  },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

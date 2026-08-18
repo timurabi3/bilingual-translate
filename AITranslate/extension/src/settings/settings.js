@@ -160,6 +160,20 @@ function renderList() {
     };
     presetUl.appendChild(li);
   }
+
+  // Auto-translate domains: added via the popup checkbox, removed here.
+  const autoUl = document.getElementById("auto-list");
+  autoUl.innerHTML = "";
+  for (const d of settings.autoTranslateDomains || []) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="name">${d}</span><button title="Stop auto-translating this site">✕</button>`;
+    li.querySelector("button").onclick = async () => {
+      settings.autoTranslateDomains = (settings.autoTranslateDomains || []).filter((x) => x !== d);
+      await persist();
+      renderList();
+    };
+    autoUl.appendChild(li);
+  }
 }
 
 function renderDetail() {
@@ -298,6 +312,47 @@ document.getElementById("add-custom").onclick = async () => {
   selectedId = custom.id;
   await persist();
   render();
+};
+
+// Export the full config as JSON. Keys are included by default, tick the
+// checkbox off to share a config without them.
+document.getElementById("export-config").onclick = () => {
+  const data = JSON.parse(JSON.stringify(settings));
+  if (!document.getElementById("export-keys").checked) {
+    data.providers = data.providers.map(({ apiKey, ...rest }) => ({ ...rest, apiKey: "" }));
+  }
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "bilingual-translate-settings.json";
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
+
+// Import a previously exported config. Replaces the provider list; languages,
+// default provider and auto-translate domains are taken over too.
+document.getElementById("import-config").onchange = async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  try {
+    const imported = JSON.parse(await file.text());
+    if (!imported || !Array.isArray(imported.providers)) throw new Error("no providers array found");
+    for (const p of imported.providers) {
+      if (!p.id || !p.name || !p.adapter) throw new Error("malformed provider entry");
+    }
+    settings.providers = imported.providers;
+    if (imported.defaultProviderId) settings.defaultProviderId = imported.defaultProviderId;
+    if (imported.targetLang) settings.targetLang = imported.targetLang;
+    if (imported.sourceLang) settings.sourceLang = imported.sourceLang;
+    if (imported.displayMode) settings.displayMode = imported.displayMode;
+    if (Array.isArray(imported.autoTranslateDomains)) settings.autoTranslateDomains = imported.autoTranslateDomains;
+    selectedId = null;
+    await persist();
+    render();
+  } catch (err) {
+    alert("Import failed: " + err.message);
+  }
+  e.target.value = "";
 };
 
 (async () => {

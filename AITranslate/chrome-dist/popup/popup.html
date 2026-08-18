@@ -22,6 +22,13 @@
     </div>
   </section>
 
+  <section class="card auto-card">
+    <label class="auto-row" id="auto-row">
+      <input type="checkbox" id="auto-site" />
+      <span>Always translate this site</span>
+    </label>
+  </section>
+
   <button id="translate" class="translate">
     <span>Translate</span>
     <kbd>⌥A</kbd>
@@ -33,9 +40,11 @@
     <button data-mode="translation">Translation</button>
   </div>
 
+  <p id="status" class="status" hidden></p>
+
   <footer class="footer">
     <a id="open-settings" href="#"><span class="gear">⚙</span> Settings</a>
-    <span class="version">v0.1.0</span>
+    <span class="version">v0.2.0</span>
   </footer>
 
   <script src="popup.js"></script>

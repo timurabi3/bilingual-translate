@@ -1,6 +1,15 @@
 // Adapters that require an API key (keyless does not).
 const KEY_REQUIRED = new Set(["openai-compat", "anthropic", "classic-mt"]);
 
+// Long pages translate in batches; without a cap the in-memory cache would
+// grow forever on endless-scroll sites.
+const CACHE_MAX = 1000;
+
+function cacheSet(map, key, value) {
+  map.set(key, value);
+  if (map.size > CACHE_MAX) map.delete(map.keys().next().value);
+}
+
 /**
  * createDispatcher({ getAdapter, getSettings }) -> { translateBlocks }
  * Dependency-injected so it is unit-testable without browser globals.
@@ -42,7 +51,7 @@ export function createDispatcher({ getAdapter, getSettings }) {
       translated.forEach((t, j) => {
         const i = missingIdx[j];
         results[i] = t;
-        cache.set(ckey(missingText[j]), t);
+        cacheSet(cache, ckey(missingText[j]), t);
       });
     }
     return results;

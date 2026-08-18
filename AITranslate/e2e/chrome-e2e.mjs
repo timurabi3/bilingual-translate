@@ -158,6 +158,51 @@ for (let i = 0; i < 20; i++) {
 }
 log("selection tooltip:", tooltip ? tooltip.slice(0, 90) : "NOT SHOWN");
 
+// --- 7c. re-translate with a new language clears old translations -----------
+await sw.evaluate(async () => {
+  const tabs = await chrome.tabs.query({});
+  const tab = tabs.find((t) => t.url && t.url.includes("127.0.0.1:8741"));
+  return await chrome.tabs.sendMessage(tab.id, {
+    type: "TRIGGER_TRANSLATE",
+    payload: { sourceLang: "auto", targetLang: "en" },
+  });
+});
+let retranslated = [];
+for (let i = 0; i < 30; i++) {
+  retranslated = await page.evaluate(() =>
+    [...document.querySelectorAll("[data-xlate]:not(.xlate-tooltip)")]
+      .map((n) => n.textContent.trim())
+      .filter((t) => t.length > 1)
+  );
+  if (retranslated.some((t) => /Munich|Bavaria/i.test(t))) break;
+  await page.waitForTimeout(1000);
+}
+const retranslateOk =
+  retranslated.some((t) => /Munich|Bavaria/i.test(t)) && !retranslated.some((t) => /München/i.test(t));
+log("re-translate to en:", retranslateOk ? "OK (German replaced by English)" : "FAIL");
+
+// --- 7d. auto-translate on page load (no trigger) -----------------------------
+await sw.evaluate(async () => {
+  const stored = await chrome.storage.local.get("settings");
+  const s = stored.settings || {};
+  s.autoTranslateDomains = ["127.0.0.1"];
+  await chrome.storage.local.set({ settings: s });
+});
+const page2 = await ctx.newPage();
+await page2.goto(`http://127.0.0.1:${PORT}/`);
+let autoCount = 0;
+for (let i = 0; i < 30; i++) {
+  autoCount = await page2.evaluate(() => document.querySelectorAll("[data-xlate]:not(.xlate-tooltip)").length);
+  if (autoCount >= 6) break;
+  await page2.waitForTimeout(1000);
+}
+const autoOk = autoCount >= 6;
+log("auto-translate on load:", autoOk ? `OK (${autoCount} nodes, zero clicks)` : "FAIL");
+await page2.close();
+
+const badge = await sw.evaluate(async () => await chrome.action.getBadgeText({}));
+log("toolbar badge:", JSON.stringify(badge));
+
 // --- 7b. settings page: adapter dropdown must show human labels ---------------
 const settingsPage = await ctx.newPage();
 await settingsPage.goto(`chrome-extension://${extId}/settings/settings.html`);
@@ -195,6 +240,6 @@ log("screenshot:", path.join(SCREENSHOT_DIR, "chrome-e2e.png"));
 await ctx.close();
 server.close();
 
-const pass = result.count >= 6 && !!tooltip && settingsOk;
+const pass = result.count >= 6 && !!tooltip && settingsOk && retranslateOk && autoOk;
 console.log(pass ? "\nE2E RESULT: PASS" : "\nE2E RESULT: FAIL");
 process.exit(pass ? 0 : 1);

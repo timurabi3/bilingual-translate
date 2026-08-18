@@ -1,6 +1,7 @@
 import { collectBlocks } from "../segment/segmenter.js";
 import { injectTranslation, removeAllTranslations, setDisplayMode } from "./inject.js";
 import { MSG } from "../common/messages.js";
+import { domainMatches } from "../common/domains.js";
 
 const BATCH = 20;
 
@@ -96,6 +97,9 @@ function observeMutations(opts) {
 
 browser.runtime.onMessage.addListener(async (msg) => {
   if (msg.type === MSG.TRIGGER_TRANSLATE) {
+    // Clear previous translations first so switching language actually
+    // re-translates instead of leaving stale blocks behind.
+    removeAllTranslations(document.body);
     await translatePage(msg.payload);
     return { ok: true };
   }
@@ -105,3 +109,18 @@ browser.runtime.onMessage.addListener(async (msg) => {
     return { ok: true };
   }
 });
+
+// Auto-translate: pages whose domain is in the settings list translate on load,
+// no clicks needed.
+(async () => {
+  try {
+    const res = await browser.runtime.sendMessage({ type: MSG.GET_SETTINGS });
+    const s = res && res.settings;
+    if (!s || !Array.isArray(s.autoTranslateDomains) || s.autoTranslateDomains.length === 0) return;
+    if (s.autoTranslateDomains.some((d) => domainMatches(location.hostname, d))) {
+      await translatePage({ sourceLang: s.sourceLang, targetLang: s.targetLang });
+    }
+  } catch {
+    // Service worker may be restarting; the next load retries.
+  }
+})();

@@ -3,6 +3,7 @@ globalThis.browser ??= globalThis.chrome;
 (() => {
   // src/adapters/keyless.js
   var ENDPOINT = "https://translate.googleapis.com/translate_a/single";
+  var FETCH_TIMEOUT_MS = 3e4;
   async function translateOne(text, sourceLang, targetLang) {
     const params = new URLSearchParams({
       client: "gtx",
@@ -11,7 +12,15 @@ globalThis.browser ??= globalThis.chrome;
       dt: "t",
       q: text
     });
-    const res = await fetch(`${ENDPOINT}?${params.toString()}`);
+    let res;
+    try {
+      res = await fetch(`${ENDPOINT}?${params.toString()}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    } catch (e) {
+      if (e && (e.name === "TimeoutError" || e.name === "AbortError")) {
+        throw new Error(`keyless: timed out after ${FETCH_TIMEOUT_MS / 1e3}s`);
+      }
+      throw e;
+    }
     if (!res.ok) throw new Error(`keyless: HTTP ${res.status}`);
     const data = await res.json();
     return (data[0] || []).map((seg) => seg[0]).join("");
@@ -54,22 +63,32 @@ globalThis.browser ??= globalThis.chrome;
     const from = sourceLang && sourceLang !== "auto" ? `from ${sourceLang} ` : "";
     return `You are a translation engine. Translate the numbered list ${from}into ${targetLang}. Return ONLY the same numbered list with translations, same count, same order. Do not add notes, do not merge or split items.`;
   }
+  var FETCH_TIMEOUT_MS2 = 3e4;
   async function call(content, config) {
-    const res = await fetch(config.apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`
-      },
-      body: JSON.stringify({
-        model: config.model,
-        messages: [
-          { role: "system", content: content.system },
-          { role: "user", content: content.user }
-        ],
-        temperature: 0
-      })
-    });
+    let res;
+    try {
+      res = await fetch(config.apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.apiKey}`
+        },
+        body: JSON.stringify({
+          model: config.model,
+          messages: [
+            { role: "system", content: content.system },
+            { role: "user", content: content.user }
+          ],
+          temperature: 0
+        }),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS2)
+      });
+    } catch (e) {
+      if (e && (e.name === "TimeoutError" || e.name === "AbortError")) {
+        throw new Error(`openai-compat: timed out after ${FETCH_TIMEOUT_MS2 / 1e3}s`);
+      }
+      throw e;
+    }
     if (!res.ok) throw new Error(`openai-compat: HTTP ${res.status}`);
     const data = await res.json();
     return data.choices[0].message.content;
@@ -91,35 +110,53 @@ globalThis.browser ??= globalThis.chrome;
   };
 
   // src/adapters/classicMt.js
+  var FETCH_TIMEOUT_MS3 = 3e4;
+  function timeoutError(id) {
+    return new Error(`${id}: timed out after ${FETCH_TIMEOUT_MS3 / 1e3}s`);
+  }
   async function deepl(blocks, sourceLang, targetLang, config) {
     const body = new URLSearchParams();
     for (const b of blocks) body.append("text", b);
     body.append("target_lang", targetLang);
     if (sourceLang && sourceLang !== "auto") body.append("source_lang", sourceLang);
-    const res = await fetch(config.apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `DeepL-Auth-Key ${config.apiKey}`
-      },
-      body: body.toString()
-    });
+    let res;
+    try {
+      res = await fetch(config.apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Authorization: `DeepL-Auth-Key ${config.apiKey}`
+        },
+        body: body.toString(),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS3)
+      });
+    } catch (e) {
+      if (e && (e.name === "TimeoutError" || e.name === "AbortError")) throw timeoutError("classic-mt(deepl)");
+      throw e;
+    }
     if (!res.ok) throw new Error(`classic-mt(deepl): HTTP ${res.status}`);
     const data = await res.json();
     return data.translations.map((t) => t.text);
   }
   async function googleCloud(blocks, sourceLang, targetLang, config) {
     const url = `${config.apiUrl}?key=${encodeURIComponent(config.apiKey)}`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        q: blocks,
-        target: targetLang,
-        ...sourceLang && sourceLang !== "auto" ? { source: sourceLang } : {},
-        format: "text"
-      })
-    });
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          q: blocks,
+          target: targetLang,
+          ...sourceLang && sourceLang !== "auto" ? { source: sourceLang } : {},
+          format: "text"
+        }),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS3)
+      });
+    } catch (e) {
+      if (e && (e.name === "TimeoutError" || e.name === "AbortError")) throw timeoutError("classic-mt(google-cloud)");
+      throw e;
+    }
     if (!res.ok) throw new Error(`classic-mt(google-cloud): HTTP ${res.status}`);
     const data = await res.json();
     return data.data.translations.map((t) => t.translatedText);
@@ -134,26 +171,36 @@ globalThis.browser ??= globalThis.chrome;
 
   // src/adapters/anthropic.js
   var ANTHROPIC_VERSION = "2023-06-01";
+  var FETCH_TIMEOUT_MS4 = 3e4;
   function systemPrompt2(sourceLang, targetLang) {
     const from = sourceLang && sourceLang !== "auto" ? `from ${sourceLang} ` : "";
     return `You are a translation engine. Translate the numbered list ${from}into ${targetLang}. Return ONLY the same numbered list with translations, same count, same order.`;
   }
   async function call2(system, user, config) {
-    const res = await fetch(config.apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": config.apiKey,
-        "anthropic-version": ANTHROPIC_VERSION,
-        "anthropic-dangerous-direct-browser-access": "true"
-      },
-      body: JSON.stringify({
-        model: config.model,
-        max_tokens: 4096,
-        system,
-        messages: [{ role: "user", content: user }]
-      })
-    });
+    let res;
+    try {
+      res = await fetch(config.apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": config.apiKey,
+          "anthropic-version": ANTHROPIC_VERSION,
+          "anthropic-dangerous-direct-browser-access": "true"
+        },
+        body: JSON.stringify({
+          model: config.model,
+          max_tokens: 4096,
+          system,
+          messages: [{ role: "user", content: user }]
+        }),
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS4)
+      });
+    } catch (e) {
+      if (e && (e.name === "TimeoutError" || e.name === "AbortError")) {
+        throw new Error(`anthropic: timed out after ${FETCH_TIMEOUT_MS4 / 1e3}s`);
+      }
+      throw e;
+    }
     if (!res.ok) throw new Error(`anthropic: HTTP ${res.status}`);
     const data = await res.json();
     return data.content[0].text;
@@ -222,6 +269,11 @@ globalThis.browser ??= globalThis.chrome;
 
   // src/background/dispatch.js
   var KEY_REQUIRED = /* @__PURE__ */ new Set(["openai-compat", "anthropic", "classic-mt"]);
+  var CACHE_MAX = 1e3;
+  function cacheSet(map, key, value) {
+    map.set(key, value);
+    if (map.size > CACHE_MAX) map.delete(map.keys().next().value);
+  }
   function createDispatcher({ getAdapter: getAdapter2, getSettings }) {
     const cache = /* @__PURE__ */ new Map();
     function resolveProvider(settings, providerId) {
@@ -256,7 +308,7 @@ globalThis.browser ??= globalThis.chrome;
         translated.forEach((t, j) => {
           const i = missingIdx[j];
           results[i] = t;
-          cache.set(ckey(missingText[j]), t);
+          cacheSet(cache, ckey(missingText[j]), t);
         });
       }
       return results;
@@ -280,13 +332,24 @@ globalThis.browser ??= globalThis.chrome;
 
   // src/background/worker.js
   var dispatcher = createDispatcher({ getAdapter, getSettings: loadSettings });
+  function setBadge(text) {
+    try {
+      if (browser.action?.setBadgeText) browser.action.setBadgeText({ text });
+      if (browser.action?.setBadgeBackgroundColor && text) {
+        browser.action.setBadgeBackgroundColor({ color: "#e0457b" });
+      }
+    } catch {
+    }
+  }
   browser.runtime.onMessage.addListener(async (msg) => {
     switch (msg.type) {
       case MSG.TRANSLATE_BLOCKS:
         try {
           const translations = await dispatcher.translateBlocks(msg.payload);
+          setBadge("");
           return { ok: true, translations };
         } catch (e) {
+          setBadge("!");
           return { ok: false, error: String(e.message || e) };
         }
       case MSG.GET_SETTINGS:
@@ -305,4 +368,15 @@ globalThis.browser ??= globalThis.chrome;
         return { ok: false, error: `Unknown message type: ${msg.type}` };
     }
   });
+  if (browser.commands?.onCommand) {
+    browser.commands.onCommand.addListener(async (command) => {
+      if (command !== "translate-page") return;
+      try {
+        const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
+        if (tab?.id == null) return;
+        await browser.tabs.sendMessage(tab.id, { type: MSG.TRIGGER_TRANSLATE, payload: {} });
+      } catch {
+      }
+    });
+  }
 })();

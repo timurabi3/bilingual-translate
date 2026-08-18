@@ -24,6 +24,14 @@
         <ul id="provider-list"></ul>
         <h3>Add from presets</h3>
         <ul id="preset-list" class="presets"></ul>
+        <h3>Auto-translate sites</h3>
+        <ul id="auto-list"></ul>
+        <div class="io-row">
+          <button id="export-config" class="ghost">Export config</button>
+          <label class="ghost file-btn" for="import-config">Import config</label>
+          <input type="file" id="import-config" accept=".json,application/json" hidden />
+          <label class="keys-include"><input type="checkbox" id="export-keys" checked /> include API keys</label>
+        </div>
       </div>
       <div class="detail" id="detail"><p class="empty">Select a provider to edit its settings.</p></div>
     </main>

@@ -50,4 +50,17 @@ describe("dispatcher", () => {
     expect(srcArg).toBe("auto");
     expect(tgtArg).toBe("de");
   });
+
+  it("caps the cache so long pages don't grow memory forever", async () => {
+    const blocks = Array.from({ length: 1001 }, (_, i) => "b" + i);
+    const fakeAdapter = { translate: vi.fn(async (b) => b.map((x) => x + "!")) };
+    const d = createDispatcher({ getAdapter: () => fakeAdapter, getSettings: async () => settings });
+
+    await d.translateBlocks({ blocks, sourceLang: "auto", targetLang: "de" });
+    expect(fakeAdapter.translate).toHaveBeenCalledTimes(1);
+
+    // The first-inserted block got evicted when the cache hit its cap.
+    await d.translateBlocks({ blocks: ["b0"], sourceLang: "auto", targetLang: "de" });
+    expect(fakeAdapter.translate).toHaveBeenCalledTimes(2);
+  });
 });

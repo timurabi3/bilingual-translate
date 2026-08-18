@@ -9,22 +9,33 @@ function systemPrompt(sourceLang, targetLang) {
   );
 }
 
+const FETCH_TIMEOUT_MS = 30000;
+
 async function call(content, config) {
-  const res = await fetch(config.apiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: config.model,
-      messages: [
-        { role: "system", content: content.system },
-        { role: "user", content: content.user },
-      ],
-      temperature: 0,
-    }),
-  });
+  let res;
+  try {
+    res = await fetch(config.apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          { role: "system", content: content.system },
+          { role: "user", content: content.user },
+        ],
+        temperature: 0,
+      }),
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  } catch (e) {
+    if (e && (e.name === "TimeoutError" || e.name === "AbortError")) {
+      throw new Error(`openai-compat: timed out after ${FETCH_TIMEOUT_MS / 1000}s`);
+    }
+    throw e;
+  }
   if (!res.ok) throw new Error(`openai-compat: HTTP ${res.status}`);
   const data = await res.json();
   return data.choices[0].message.content;

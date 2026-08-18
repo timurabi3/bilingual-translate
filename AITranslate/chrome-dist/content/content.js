@@ -149,6 +149,14 @@ globalThis.browser ??= globalThis.chrome;
     SET_DISPLAY_MODE: "SET_DISPLAY_MODE"
   };
 
+  // src/common/domains.js
+  function domainMatches(hostname, domain) {
+    const h = String(hostname || "").toLowerCase();
+    const d = String(domain || "").toLowerCase().replace(/^\.+/, "").trim();
+    if (!d) return false;
+    return h === d || h.endsWith("." + d);
+  }
+
   // src/content/content.js
   var BATCH = 20;
   var translating = false;
@@ -230,6 +238,7 @@ globalThis.browser ??= globalThis.chrome;
   }
   browser.runtime.onMessage.addListener(async (msg) => {
     if (msg.type === MSG.TRIGGER_TRANSLATE) {
+      removeAllTranslations(document.body);
       await translatePage(msg.payload);
       return { ok: true };
     }
@@ -239,4 +248,15 @@ globalThis.browser ??= globalThis.chrome;
       return { ok: true };
     }
   });
+  (async () => {
+    try {
+      const res = await browser.runtime.sendMessage({ type: MSG.GET_SETTINGS });
+      const s = res && res.settings;
+      if (!s || !Array.isArray(s.autoTranslateDomains) || s.autoTranslateDomains.length === 0) return;
+      if (s.autoTranslateDomains.some((d) => domainMatches(location.hostname, d))) {
+        await translatePage({ sourceLang: s.sourceLang, targetLang: s.targetLang });
+      }
+    } catch {
+    }
+  })();
 })();

@@ -1,4 +1,5 @@
 const ENDPOINT = "https://translate.googleapis.com/translate_a/single";
+const FETCH_TIMEOUT_MS = 30000;
 
 async function translateOne(text, sourceLang, targetLang) {
   const params = new URLSearchParams({
@@ -8,7 +9,15 @@ async function translateOne(text, sourceLang, targetLang) {
     dt: "t",
     q: text,
   });
-  const res = await fetch(`${ENDPOINT}?${params.toString()}`);
+  let res;
+  try {
+    res = await fetch(`${ENDPOINT}?${params.toString()}`, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  } catch (e) {
+    if (e && (e.name === "TimeoutError" || e.name === "AbortError")) {
+      throw new Error(`keyless: timed out after ${FETCH_TIMEOUT_MS / 1000}s`);
+    }
+    throw e;
+  }
   if (!res.ok) throw new Error(`keyless: HTTP ${res.status}`);
   const data = await res.json();
   // data[0] is an array of [translatedChunk, originalChunk, ...]

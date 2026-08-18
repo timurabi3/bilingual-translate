@@ -1,5 +1,6 @@
 import { LANGS } from "../common/langs.js";
 import { MSG } from "../common/messages.js";
+import { domainMatches } from "../common/domains.js";
 
 function fillLangs(sel, excludeAuto) {
   for (const l of LANGS) {
@@ -19,6 +20,17 @@ async function getSettings() {
 async function activeTab() {
   const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
   return tab;
+}
+
+function status(text) {
+  const el = document.getElementById("status");
+  el.textContent = text || "";
+  el.hidden = !text;
+}
+
+async function sendToActiveTab(message) {
+  const tab = await activeTab();
+  await browser.tabs.sendMessage(tab.id, message);
 }
 
 async function init() {
@@ -57,6 +69,26 @@ async function init() {
   targetSel.onchange = () => persist();
   provSel.onchange = () => persist();
 
+  // "Always translate this site" — hosts saved in settings, matched with
+  // subdomains on load by the content script.
+  const tab = await activeTab();
+  const host = (() => {
+    try {
+      return new URL(tab?.url || "").hostname;
+    } catch {
+      return "";
+    }
+  })();
+  const autoBox = document.getElementById("auto-site");
+  const autoRow = document.getElementById("auto-row");
+  if (!host) autoRow.classList.add("disabled");
+  autoBox.checked = !!host && (s.autoTranslateDomains || []).some((d) => domainMatches(host, d));
+  autoBox.onchange = async () => {
+    const domains = (s.autoTranslateDomains || []).filter((d) => d !== host);
+    if (autoBox.checked) domains.push(host);
+    await persist({ autoTranslateDomains: domains });
+  };
+
   document.getElementById("swap").onclick = async () => {
     // "auto" cannot be a target; swap to the detected-or-default pair sensibly.
     const src = sourceSel.value === "auto" ? targetSel.value : sourceSel.value;
@@ -68,20 +100,27 @@ async function init() {
 
   document.getElementById("translate").onclick = async () => {
     await persist();
-    const tab = await activeTab();
-    await browser.tabs.sendMessage(tab.id, {
-      type: MSG.TRIGGER_TRANSLATE,
-      payload: { sourceLang: sourceSel.value, targetLang: targetSel.value },
-    });
-    window.close();
+    try {
+      await sendToActiveTab({
+        type: MSG.TRIGGER_TRANSLATE,
+        payload: { sourceLang: sourceSel.value, targetLang: targetSel.value },
+      });
+      window.close();
+    } catch {
+      status("Can't reach this page. Browser pages (chrome://…) and not-yet-loaded tabs can't be translated.");
+    }
   };
 
   document.querySelectorAll(".modes button").forEach((btn) => {
     btn.onclick = async () => {
       setActiveMode(btn.dataset.mode);
       await persist({ displayMode: btn.dataset.mode });
-      const tab = await activeTab();
-      await browser.tabs.sendMessage(tab.id, { type: MSG.SET_DISPLAY_MODE, payload: { mode: btn.dataset.mode } });
+      try {
+        await sendToActiveTab({ type: MSG.SET_DISPLAY_MODE, payload: { mode: btn.dataset.mode } });
+        status("");
+      } catch {
+        status("Can't reach this page — mode is saved and will apply on the next translatable tab.");
+      }
     };
   });
 

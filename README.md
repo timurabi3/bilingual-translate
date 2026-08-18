@@ -12,11 +12,16 @@ in Chrome too. Same codebase, one build.
 - Translates pages in place: every paragraph gets its translation injected under it,
   so you read the original and the translation at the same time.
 - Select any text and a tooltip shows up with the translation.
+- **Always translate this site**: tick the checkbox in the popup and the page
+  translates itself on every load. No clicks.
+- Keyboard shortcut: Alt+A (⌥A on Mac), rebindable in chrome://extensions/shortcuts.
 - Three view modes: Bilingual, Original-only, Translation-only.
 - Dynamic pages work. Infinite scroll, lazy-loaded content, whatever shows up later
   gets translated as it appears.
 - Works out of the box: ships with a keyless Google Translate provider, so you can
   install it and translate immediately without signing up anywhere.
+- Import/export your provider config as JSON (keys optional) to move between
+  machines or share with a friend.
 
 ![The popup](screenshots/popup.png)
 
