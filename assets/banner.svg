@@ -22,9 +22,9 @@
       .orig  { font: 500 26px 'Segoe UI', Ubuntu, Helvetica, Arial, sans-serif; fill:#e2e8f0; }
       .trans { font: 500 26px 'Segoe UI', Ubuntu, Helvetica, Arial, sans-serif; fill:#5eead4; }
       .chip  { font: 700 16px 'Segoe UI', Ubuntu, Helvetica, Arial, sans-serif; fill:#04202a; }
-      .rise  { opacity:0; transform:translateY(12px); animation:rise .7s ease-out forwards; }
+      .rise  { opacity:0; animation:rise .7s ease-out forwards; }
       .d1{animation-delay:.1s}.d2{animation-delay:.3s}.d3{animation-delay:.5s}
-      @keyframes rise{to{opacity:1;transform:translateY(0)}}
+      @keyframes rise{to{opacity:1}}
       .flow { opacity:0; animation: flow 4s ease-in-out infinite; }
       @keyframes flow { 0%,15%{opacity:0;transform:translateY(-6px)} 35%,80%{opacity:1;transform:translateY(0)} 100%{opacity:0} }
     </style>
